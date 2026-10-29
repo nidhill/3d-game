@@ -1,0 +1,14 @@
+{
+  "name": "haca-office-explorer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HACA office explorer: multiplayer 3D walk-through with proximity voice chat",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "selfsigned": "^5.5.0",
+    "ws": "^8.18.0"
+  }
+}

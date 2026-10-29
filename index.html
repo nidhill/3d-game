@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>HACA Office Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --accent:#00a2ff; --dark:#1b1d22; --panel:rgba(20,22,28,.78); }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#9fd0ff; font-family:'Fredoka',system-ui,sans-serif; color:#fff; user-select:none; -webkit-user-select:none; touch-action:none; }
+  canvas#game { display:block; width:100vw; height:100vh; }
+
+  .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:20; background:radial-gradient(ellipse at center, rgba(10,40,80,.55), rgba(5,10,20,.85)); }
+  .hidden { display:none !important; }
+  .card { background:var(--panel); border:2px solid rgba(255,255,255,.12); border-radius:18px; padding:28px 32px; width:min(440px, calc(100vw - 32px)); text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.5); backdrop-filter:blur(6px); }
+  .card h1 { margin:0 0 4px; font-size:38px; letter-spacing:1px; }
+  .card h1 span { color:var(--accent); }
+  .card p.sub { margin:0 0 18px; opacity:.8; }
+  .bar { height:14px; background:rgba(255,255,255,.12); border-radius:8px; overflow:hidden; margin:14px 0 6px; }
+  .bar > div { height:100%; width:0; background:linear-gradient(90deg,#00a2ff,#4ee08a); transition:width .2s; }
+  label.field { display:block; text-align:left; font-size:14px; opacity:.85; margin:12px 0 6px; }
+  input[type=text] { width:100%; padding:10px 12px; border-radius:10px; border:2px solid rgba(255,255,255,.15); background:rgba(0,0,0,.35); color:#fff; font:inherit; font-size:16px; outline:none; }
+  input[type=text]:focus { border-color:var(--accent); }
+  .outfits { display:flex; gap:10px; justify-content:center; }
+  .outfit { flex:1; padding:10px 6px; border-radius:12px; border:2px solid rgba(255,255,255,.15); background:rgba(0,0,0,.3); cursor:pointer; color:#fff; font:inherit; font-size:14px; }
+  .outfit.sel { border-color:var(--accent); background:rgba(0,162,255,.2); }
+  .outfit i { display:flex; gap:3px; justify-content:center; margin-bottom:6px; }
+  .outfit i b { width:14px; height:14px; border-radius:3px; display:block; }
+  button.play { margin-top:20px; width:100%; padding:14px; font:inherit; font-size:22px; font-weight:700; color:#fff; background:linear-gradient(#00b0ff,#0078d7); border:0; border-radius:12px; cursor:pointer; box-shadow:0 5px 0 #00509a; }
+  button.play:active { transform:translateY(3px); box-shadow:0 2px 0 #00509a; }
+  button.play:disabled { filter:grayscale(1); opacity:.6; cursor:default; }
+  .keys { margin-top:16px; font-size:13px; opacity:.75; line-height:1.7; }
+  kbd { background:rgba(255,255,255,.15); border-radius:5px; padding:1px 6px; font-family:inherit; }
+
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; }
+  #zone { position:absolute; top:16px; left:50%; transform:translateX(-50%); background:var(--panel); padding:8px 18px; border-radius:12px; font-size:18px; font-weight:600; white-space:nowrap; }
+  #toast { position:absolute; top:28%; left:50%; transform:translate(-50%,-50%); font-size:clamp(24px,5vw,46px); font-weight:700; text-shadow:0 3px 0 rgba(0,0,0,.45), 0 0 20px rgba(0,0,0,.4); opacity:0; transition:opacity .4s; text-align:center; padding:0 16px; }
+  #toast small { display:block; font-size:.45em; font-weight:400; opacity:.9; }
+  #mapWrap { position:absolute; top:16px; right:16px; background:var(--panel); border-radius:12px; padding:6px; }
+  #map { display:block; width:200px; height:170px; }
+  #help { position:absolute; left:16px; bottom:16px; background:var(--panel); padding:8px 12px; border-radius:10px; font-size:13px; line-height:1.6; opacity:.9; }
+  #explored { position:absolute; top:16px; left:16px; background:var(--panel); padding:8px 14px; border-radius:12px; font-size:15px; }
+  #online { position:absolute; top:58px; left:16px; background:var(--panel); padding:6px 14px; border-radius:12px; font-size:14px; pointer-events:auto; cursor:default; }
+  #micBtn { position:absolute; right:16px; bottom:16px; pointer-events:auto; background:var(--panel); color:#fff; border:2px solid rgba(255,255,255,.2); border-radius:12px; padding:10px 16px; font:inherit; font-size:15px; cursor:pointer; }
+  #micBtn.on { background:rgba(46,160,90,.85); border-color:#7dffa1; }
+
+  #touch { position:fixed; inset:0; z-index:11; pointer-events:none; }
+  #stick { position:absolute; left:28px; bottom:28px; width:130px; height:130px; border-radius:50%; background:rgba(255,255,255,.12); border:2px solid rgba(255,255,255,.25); pointer-events:auto; }
+  #knob { position:absolute; left:40px; top:40px; width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,.55); }
+  #jumpBtn { position:absolute; right:30px; bottom:40px; width:84px; height:84px; border-radius:50%; background:rgba(255,255,255,.18); border:2px solid rgba(255,255,255,.35); pointer-events:auto; font:inherit; font-size:16px; color:#fff; }
+
+  @media (max-width:640px) {
+    #map { width:140px; height:119px; }
+    #help { display:none; }
+    #zone { top:auto; bottom:190px; font-size:15px; }
+    #micBtn { bottom:140px; right:24px; }
+    #explored { font-size:13px; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="explored">Explored: 0 / 0</div>
+  <div id="online">👤 Connecting…</div>
+  <button id="micBtn">🔇 Mic off (V)</button>
+  <div id="zone">Outside</div>
+  <div id="toast"></div>
+  <div id="mapWrap"><canvas id="map" width="400" height="340"></canvas></div>
+  <div id="help">
+    <kbd>W A S D</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> jump<br>
+    <kbd>Mouse</kbd> look &nbsp; <kbd>Wheel</kbd> zoom &nbsp; <kbd>R</kbd> respawn &nbsp; <kbd>V</kbd> mic &nbsp; <kbd>Esc</kbd> pause
+  </div>
+</div>
+
+<div id="touch" class="hidden">
+  <div id="stick"><div id="knob"></div></div>
+  <button id="jumpBtn">JUMP</button>
+</div>
+
+<div id="menu" class="overlay">
+  <div class="card">
+    <h1><span>HACA</span> Office</h1>
+    <p class="sub">Spawn outside, walk in, explore every room.</p>
+    <div id="loading">
+      <div class="bar"><div id="barFill"></div></div>
+      <div id="loadText">Loading building… 0%</div>
+    </div>
+    <label class="field" for="name">Your name</label>
+    <input id="name" type="text" maxlength="16" value="Player">
+    <label class="field">Avatar</label>
+    <div class="outfits">
+      <button class="outfit sel" data-o="classic"><i><b style="background:#f5cd30"></b><b style="background:#0d69ac"></b><b style="background:#4b974b"></b></i>Classic</button>
+      <button class="outfit" data-o="haca"><i><b style="background:#ffc9a3"></b><b style="background:#1e88ff"></b><b style="background:#1b1f3a"></b></i>HACA</button>
+      <button class="outfit" data-o="red"><i><b style="background:#e8b48f"></b><b style="background:#e53935"></b><b style="background:#263238"></b></i>Red</button>
+    </div>
+    <button id="playBtn" class="play" disabled>Loading…</button>
+    <div class="keys">
+      <kbd>WASD</kbd> move · <kbd>Shift</kbd> run · <kbd>Space</kbd> jump · <kbd>Mouse</kbd> look · <kbd>Wheel</kbd> zoom
+    </div>
+  </div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <div class="card">
+    <h1>Paused</h1>
+    <p class="sub">Click resume to keep exploring.</p>
+    <button id="resumeBtn" class="play">Resume</button>
+  </div>
+</div>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
